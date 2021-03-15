@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlite3.dbapi2 import connect
 import telebot
 from telebot import types
 import sqlite3
@@ -8,8 +9,13 @@ from cfg import *
 bot=telebot.TeleBot(TOKEN)
 
 
-def to_db(msg, phone=0):
+
+def db_connect():
+    global conn 
     conn = sqlite3.connect('members.db')
+
+
+def to_db(msg, phone=0):
     cur = conn.cursor()
     cur.execute("""CREATE TABLE IF NOT EXISTS members(
             userid INT,
@@ -96,7 +102,6 @@ def process_step(message):
 
 @bot.message_handler(commands=['get_data'])
 def get_data(message):
-    conn = sqlite3.connect('members.db')
     cur = conn.cursor()
     cur.execute("""CREATE TABLE IF NOT EXISTS members(
         userid INT,
@@ -120,7 +125,6 @@ def get_data(message):
 
 @bot.message_handler(commands=['set_all_no'])
 def set_to_no(message):
-    conn = sqlite3.connect('members.db')
     cur = conn.cursor()
     cur.execute("""UPDATE members SET answer='нет'""")
     conn.commit()
@@ -130,7 +134,6 @@ def set_to_no(message):
 def send_all(message):
 
     def send_message_all(mail):
-        conn = sqlite3.connect('members.db')
         cur = conn.cursor()
         to_send = mail.text
         if to_send.lower() != "отмена":
@@ -150,7 +153,6 @@ def send_all(message):
 def send_agreed(message):
 
     def send_message_all(mail):
-        conn = sqlite3.connect('members.db')
         cur = conn.cursor()
         to_send = mail.text
         if to_send.lower() != "отмена":
@@ -171,4 +173,11 @@ def text(message):
     bot.reply_to(message, "Введите команду /start чтобы записаться или отменить запись.")
 
 
-bot.polling(none_stop=True)
+if __name__ == '__main__':
+    try:
+        db_connect()
+    except:
+        print("error with db coonect")
+    else:
+        bot.polling(none_stop=True)
+    
