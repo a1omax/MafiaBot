@@ -8,7 +8,7 @@ from cfg import *
 bot=telebot.TeleBot(TOKEN)
 
 
-def to_db(msg, phone=0):
+def to_db(msg, phone="0", answer="нет"):
     conn = sqlite3.connect('members.db')
     cur = conn.cursor()
     cur.execute("""CREATE TABLE IF NOT EXISTS members(
@@ -22,10 +22,7 @@ def to_db(msg, phone=0):
     user = msg.from_user
     date = datetime.strftime(datetime.now(), "%d.%m.%Y")
     user_id = user.id
-    if phone:
-        answer = 'да'
-    else:
-        answer = 'нет'
+
 
     insert_data = (user_id, user.first_name, user.username, date, answer, phone)
 
@@ -52,31 +49,52 @@ def send_welcome(message):
     msg = bot.reply_to(message, 'Привет! Хочешь записаться на игру?', reply_markup=markup)
     bot.register_next_step_handler(msg, process_step)
 
+
+def check_db_phone(message):
+    conn = sqlite3.connect('members.db')
+    cur = conn.cursor()
+    number = cur.execute("""SELECT phone FROM members WHERE userid = (?)""",(message.from_user.id,)).fetchone()
+    if number:
+        if number[0] != "0":
+            return number[0]
+
+    return 0
+
 def process_step(message):
 
     def phone(msg):
-
         if msg.contact == None:
-            to_db(message)
+            to_db(message, answer="да")
             bot.reply_to(msg, "Нажмите на кнопку Отправить номер телефона")
             agreed()
         else:
-            number = to_db(message, msg.contact.phone_number)
+            number = to_db(message, msg.contact.phone_number, answer="да")
             if number[0] <= 25:
                 reply = "Отлично! Вы записаны в качестве участника."
             else:
                 reply = "Участников уже достаточное количество. Если освободится место, то Вам сообщат"
             bot.reply_to(message, reply)
 
+
     def agreed():
+        number_ph = check_db_phone(message)
         keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True)  # Подключаем клавиатуру
         button_phone = types.KeyboardButton(text="Отправить телефон", request_contact=True)
         keyboard.add(button_phone)
-        msg = bot.reply_to(message, 'Отправьте ваш номер телефона', reply_markup=keyboard)
-        bot.register_next_step_handler(msg, phone)
+        if not number_ph:
+            msg = bot.reply_to(message, 'Отправьте ваш номер телефона', reply_markup=keyboard)
+            bot.register_next_step_handler(msg, phone)
+        else:
+            number = to_db(message, str(number_ph), answer="да")
+            if number[0] <= 25:
+                reply = "Отлично! Вы записаны в качестве участника."
+            else:
+                reply = "Участников уже достаточное количество. Если освободится место, то Вам сообщат"
+            bot.reply_to(message, reply)
 
     def denied():
-        to_db(message)
+        number_ph = check_db_phone(message)
+        to_db(message, str(number_ph))
         reply = "Очень жаль! Если передумаете, напишите команду /start и ответьте Да"
         bot.reply_to(message, reply)
 
